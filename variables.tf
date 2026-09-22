@@ -17,7 +17,6 @@ variable "enable_dr" {
 variable "dr_region" {
   description = "AWS region for disaster recovery (e.g., eu-west-2 for London)"
   type        = string
-  default     = "eu-west-2"
 
   validation {
     condition     = can(regex("^[a-z]{2}-[a-z]+-[0-9]$", var.dr_region))
@@ -28,7 +27,6 @@ variable "dr_region" {
 variable "dr_strategy" {
   description = "Disaster recovery strategy (pilot-light, warm-standby, or active-active)"
   type        = string
-  default     = "pilot-light"
 
   validation {
     condition     = contains(["pilot-light", "warm-standby", "active-active"], var.dr_strategy)
@@ -39,7 +37,6 @@ variable "dr_strategy" {
 variable "dr_rto_hours" {
   description = "Recovery Time Objective in hours"
   type        = number
-  default     = 4
 
   validation {
     condition     = var.dr_rto_hours >= 1 && var.dr_rto_hours <= 72
@@ -50,7 +47,6 @@ variable "dr_rto_hours" {
 variable "dr_rpo_hours" {
   description = "Recovery Point Objective in hours (data loss tolerance)"
   type        = number
-  default     = 1
 
   validation {
     condition     = var.dr_rpo_hours >= 0 && var.dr_rpo_hours <= 24
@@ -61,7 +57,6 @@ variable "dr_rpo_hours" {
 variable "dr_failover_mode" {
   description = "Failover mode (manual or automatic)"
   type        = string
-  default     = "automatic"
 
   validation {
     condition     = contains(["manual", "automatic"], var.dr_failover_mode)
@@ -73,7 +68,6 @@ variable "dr_failover_mode" {
 variable "dr_hub_vpc_cidr" {
   description = "CIDR block for DR Hub VPC"
   type        = string
-  default     = "10.200.0.0/16"
 
   validation {
     condition     = can(cidrhost(var.dr_hub_vpc_cidr, 0))
@@ -84,7 +78,6 @@ variable "dr_hub_vpc_cidr" {
 variable "dr_workload_vpc_cidr" {
   description = "CIDR block for DR Workload VPC"
   type        = string
-  default     = "10.210.0.0/16"
 
   validation {
     condition     = can(cidrhost(var.dr_workload_vpc_cidr, 0))
@@ -95,7 +88,6 @@ variable "dr_workload_vpc_cidr" {
 variable "dr_data_vpc_cidr" {
   description = "CIDR block for DR Data VPC"
   type        = string
-  default     = "10.212.0.0/16"
 
   validation {
     condition     = can(cidrhost(var.dr_data_vpc_cidr, 0))
@@ -106,7 +98,6 @@ variable "dr_data_vpc_cidr" {
 variable "dr_shared_services_vpc_cidr" {
   description = "CIDR block for DR Shared Services VPC"
   type        = string
-  default     = "10.220.0.0/16"
 
   validation {
     condition     = can(cidrhost(var.dr_shared_services_vpc_cidr, 0))
@@ -118,25 +109,21 @@ variable "dr_shared_services_vpc_cidr" {
 variable "dr_aurora_instance_class" {
   description = "Instance class for DR Aurora (typically smaller than primary)"
   type        = string
-  default     = "db.t4g.medium"
 }
 
 variable "dr_aurora_instance_count" {
   description = "Number of Aurora instances in DR region (pilot light = 1)"
   type        = number
-  default     = 1
 }
 
 variable "dr_eks_node_desired_size" {
   description = "Desired EKS node count in DR (pilot light = 0, warm standby = 2)"
   type        = number
-  default     = 0
 }
 
 variable "dr_postgres_instance_class" {
   description = "Instance class for DR PostgreSQL (typically smaller than primary)"
   type        = string
-  default     = "db.t4g.medium"
 }
 
 #====================================================================
@@ -347,6 +334,11 @@ variable "vpn_customer_gateway_ip" {
 variable "vpn_customer_gateway_bgp_asn" {
   description = "BGP ASN for customer gateway"
   type        = number
+
+  validation {
+    condition     = var.vpn_customer_gateway_bgp_asn >= 64512 && var.vpn_customer_gateway_bgp_asn <= 65534
+    error_message = "BGP ASN must be in the private range (64512-65534)."
+  }
 }
 
 variable "network_firewall_delete_protection" {

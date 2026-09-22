@@ -34,7 +34,7 @@ bin/
 *.tfstate
 *.tfstate.*
 *.tfvars
-!example.tfvars
+!.tfvars.example
 tfplan
 crash.log
 crash.*.log

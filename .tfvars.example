@@ -1,0 +1,336 @@
+#====================================================================
+# TERRAFORM VARIABLES TEMPLATE - COPY TO YOUR ENVIRONMENT
+# 
+# This file shows ALL available variables with documentation.
+# 
+# USAGE:
+#   1. Copy this file to your environment: cp .tfvars.example dev.tfvars
+#   2. Replace placeholder values with your actual configuration
+#   3. Run: terraform apply -var-file=dev.tfvars
+#
+# GIT POLICY:
+#   .tfvars files are IGNORED in .gitignore
+#   Never commit .tfvars files - they contain environment-specific secrets
+#   Keep this .tfvars.example file in Git as documentation
+#====================================================================
+
+#====================================================================
+# GENERAL CONFIGURATION (REQUIRED)
+#====================================================================
+
+project_name = "example"  # Project name for resource naming (lowercase, hyphens allowed)
+environment  = "dev"      # One of: poc, dev, staging, uat, prod
+aws_region   = "eu-west-1"  # AWS region for primary deployment
+
+common_tags = {
+  Project             = "Example Digital Platform"
+  Environment         = "Development"
+  ManagedBy           = "Terraform"
+  Owner               = "Platform Engineering"
+  CostCenter          = "IT-Development"
+  DataClassification  = "Internal"
+  ComplianceFramework = "Internal-Only"
+  AutoShutdown        = "true"
+}
+
+#====================================================================
+# FEATURE FLAGS (Optional - Default to true, can disable for POC)
+#====================================================================
+
+enable_dr        = false  # Disable DR for dev/staging to reduce costs
+enable_client_vpn = true  # Enable Client VPN with Okta SAML
+enable_eks       = true   # Enable EKS cluster
+enable_msk       = true   # Enable Kafka MSK cluster
+enable_airflow   = true   # Enable Apache Airflow (MWAA)
+
+#====================================================================
+# AWS ACCOUNT IDS (REQUIRED - Multi-Account Architecture)
+#====================================================================
+
+networking_account_id      = "111111111111"  # Account for Networking resources
+workload_account_id        = "222222222222"  # Account for workload resources
+shared_services_account_id = "333333333333"  # Account for shared services
+
+#====================================================================
+# VPC CIDR BLOCKS (REQUIRED - Must not overlap between environments)
+#====================================================================
+
+# Networking Account VPCs (Hub & Spokes)
+hub_vpc_cidr             = "10.100.0.0/16"  # Hub VPC for networking
+private_ingress_vpc_cidr = "10.101.0.0/16"  # Private ingress for Client VPN
+inspection_vpc_cidr      = "10.102.0.0/16"  # Network Firewall inspection
+
+# Workload Account VPCs
+workload_vpc_cidr = "10.110.0.0/16"  # Main workload VPC with EKS
+ingress_vpc_cidr  = "10.111.0.0/16"  # Public ingress (ALB)
+data_vpc_cidr     = "10.112.0.0/16"  # Data platform (Aurora, MSK, Airflow)
+
+# Shared Services Account VPC
+shared_services_vpc_cidr = "10.120.0.0/16"  # Shared services (ECR, RDS, Lambda)
+
+#====================================================================
+# TRANSIT GATEWAY (REQUIRED - Connect all VPCs)
+#====================================================================
+
+transit_gateway_asn         = 64520  # Must be different for each environment (64512-65534)
+transit_gateway_cidr_blocks = ["10.199.0.0/24"]  # Private IP space for TGW routes
+
+# On-Premises VPN Gateway
+vpn_customer_gateway_ip      = "203.0.113.10"  # Your on-prem public IP
+vpn_customer_gateway_bgp_asn = 65010           # Must be different per environment
+
+#====================================================================
+# ROUTE 53 & DNS (REQUIRED)
+#====================================================================
+
+public_hosted_zone_name  = "dev.example.com"           # Public domain
+private_hosted_zone_name = "dev.internal.example.com"  # Private domain
+
+dns_firewall_blocked_domains = [
+  "malware.example.com",
+  "phishing.example.com"
+]
+
+dns_firewall_allowed_domains = [
+  "*.amazonaws.com",
+  "*.aws.amazon.com",
+  "*.salesforce.com",
+  "*.okta.com",
+  "*.dynatrace.com"
+]
+
+#====================================================================
+# CLIENT VPN (REQUIRED - If enable_client_vpn = true)
+#====================================================================
+
+client_vpn_cidr_block            = "172.20.0.0/16"  # Split tunnel CIDR
+client_vpn_split_tunnel          = true
+client_vpn_session_timeout_hours = 12  # Dev: longer, Prod: 8 hours
+
+okta_saml_provider_arn            = "arn:aws:iam::111111111111:saml-provider/Okta-Dev"
+client_vpn_server_certificate_arn = "arn:aws:acm:eu-west-1:111111111111:certificate/xxx"  # ACM cert in eu-west-1
+
+#====================================================================
+# NETWORK FIREWALL (Optional - Protects outbound traffic)
+#====================================================================
+
+network_firewall_delete_protection = false  # true for prod, false for dev
+
+network_firewall_allowed_domains = [
+  ".amazonaws.com",
+  ".aws.amazon.com",
+  ".salesforce.com",
+  ".okta.com",
+  ".dynatrace.com",
+  ".github.com",    # Dev needs GitHub
+  ".npmjs.org",     # NPM packages
+  ".docker.io"      # Docker Hub
+]
+
+#====================================================================
+# EKS CLUSTER (Optional - If enable_eks = true, tune sizing per env)
+#====================================================================
+
+eks_version       = "1.29"   # Kubernetes version
+eks_public_access = true     # true for dev, false for prod
+
+# System Node Group (Kubernetes system components)
+system_node_instance_types = ["t3.medium", "t3.large"]  # Dev: small, Prod: large
+system_node_desired_size   = 2
+system_node_min_size       = 1
+system_node_max_size       = 3
+
+# Application Node Group (User workloads)
+app_node_instance_types = ["t3.large", "t3.xlarge"]     # Dev: small, Prod: xlarge+
+app_node_desired_size   = 2
+app_node_min_size       = 1
+app_node_max_size       = 5
+app_node_capacity_type  = "SPOT"  # SPOT for dev (cost), ON_DEMAND for prod
+
+eks_admin_role_arns = [
+  "arn:aws:iam::222222222222:role/Developers",
+  "arn:aws:iam::222222222222:role/PlatformEngineering"
+]
+
+# EKS Add-ons Versions (rarely need to change)
+vpc_cni_version    = "v1.16.0-eksbuild.1"
+coredns_version    = "v1.11.1-eksbuild.6"
+kube_proxy_version = "v1.29.0-eksbuild.2"
+ebs_csi_version    = "v1.27.0-eksbuild.1"
+
+#====================================================================
+# ISTIO SERVICE MESH (Optional - If using service mesh)
+#====================================================================
+
+istio_version = "1.20.2"
+
+istio_ingress_gateway_replicas_min = 1  # Dev: 1, Prod: 3
+istio_ingress_gateway_replicas_max = 3  # Dev: 3, Prod: 15
+
+istio_egress_gateway_replicas_min = 1   # Dev: 1, Prod: 3
+istio_egress_gateway_replicas_max = 2   # Dev: 2, Prod: 10
+
+#====================================================================
+# AURORA RDS (Optional - If data_vpc is used)
+#====================================================================
+
+aurora_engine_version      = "15.4"
+aurora_instance_class      = "db.t4g.medium"  # Dev: t4g.medium, Prod: r6g.xlarge
+aurora_instance_count      = 1                 # Dev: 1, Prod: 3 (HA)
+aurora_database_name       = "workload_dev"    # Environment-specific
+aurora_master_username     = "dbadmin"
+aurora_backup_retention_period = 7   # Dev: 7 days, Prod: 35 days
+aurora_deletion_protection = false   # Dev: false, Prod: true (CRITICAL)
+
+#====================================================================
+# KAFKA MSK (Optional - If enable_msk = true)
+#====================================================================
+
+msk_version         = "3.5.1"
+msk_instance_type   = "kafka.t3.small"  # Dev: t3.small, Prod: m5.xlarge
+msk_broker_count    = 2                  # Dev: 2, Prod: 3
+msk_ebs_volume_size = 50                 # Dev: 50 GB, Prod: 500 GB
+
+#====================================================================
+# COGNITO USER POOL (Optional - For user authentication)
+#====================================================================
+
+cognito_user_pool_name    = "example-dev-users"  # Environment-specific name
+cognito_mfa_configuration = "OPTIONAL"           # Dev: OPTIONAL, Prod: ON
+
+cognito_password_policy = {
+  minimum_length                   = 8     # Dev: 8, Prod: 12
+  require_lowercase                = true
+  require_numbers                  = true
+  require_symbols                  = false  # Dev: false, Prod: true
+  require_uppercase                = true
+  temporary_password_validity_days = 30
+}
+
+cognito_callback_urls = [
+  "http://localhost:3000/callback",
+  "https://dev.example.com/callback"
+]
+
+cognito_logout_urls = [
+  "http://localhost:3000/logout",
+  "https://dev.example.com/logout"
+]
+
+#====================================================================
+# CLOUDFRONT & WAF (REQUIRED - For web distribution)
+#====================================================================
+
+web_domain_aliases = ["dev.example.com"]
+cms_domain_aliases = ["cms-dev.example.com"]
+
+acm_certificate_arn_us_east_1 = "arn:aws:acm:us-east-1:111111111111:certificate/xxx"  # CloudFront requires us-east-1
+acm_certificate_arn_regional  = "arn:aws:acm:eu-west-1:111111111111:certificate/xxx"  # For ALB/API Gateway
+
+cloudfront_custom_header_value = "X-Verify-Origin-Example-Dev-2024"  # Secret header for ALB verification
+
+# WAF - Environment-specific strictness
+waf_blocked_countries      = ["KP"]  # Dev: minimal, Prod: ["RU", "CN", "KP", "IR", "SY", "CU", "VE"]
+waf_rate_limit_cloudfront  = 5000    # Dev: high (testing), Prod: 2000
+waf_rate_limit_api_gateway = 3000    # Dev: high (testing), Prod: 1000
+
+#====================================================================
+# API GATEWAY (Optional - RESTful API)
+#====================================================================
+
+api_gateway_domain_name    = "api-dev.example.com"
+api_throttling_burst_limit = 1000   # Dev: 1000, Prod: 5000
+api_throttling_rate_limit  = 2000   # Dev: 2000, Prod: 10000
+
+#====================================================================
+# DATA PLATFORM (Optional - If enable_airflow = true)
+#====================================================================
+
+glue_worker_type       = "G.1X"  # Dev: G.1X, Prod: G.2X
+glue_number_of_workers = 2       # Dev: 2, Prod: 5
+
+airflow_version            = "2.7.2"
+airflow_environment_class  = "mw1.small"   # Dev: mw1.small, Prod: mw1.large
+airflow_max_workers        = 2              # Dev: 2, Prod: 25
+airflow_min_workers        = 1              # Dev: 1, Prod: 2
+
+#====================================================================
+# SHARED SERVICES (Optional - PostgreSQL + ECR)
+#====================================================================
+
+ecr_repositories = [
+  "nginx-proxy",
+  "strapi",
+  "api-service",
+  "worker-service",
+  "web-app",
+  "data-pipeline"
+]
+
+postgres_version               = "15.4"
+postgres_instance_class        = "db.t4g.medium"  # Dev: t4g.medium, Prod: r6g.xlarge
+postgres_allocated_storage     = 50                 # Dev: 50, Prod: 200
+postgres_max_allocated_storage = 100                # Dev: 100, Prod: 1000
+postgres_database_name         = "sharedservices_dev"
+postgres_master_username       = "dbadmin"
+postgres_multi_az              = false              # Dev: false, Prod: true
+
+ses_domain = "dev.example.com"  # Domain for SES email sending
+
+#====================================================================
+# SECURITY (REQUIRED - Monitoring and access control)
+#====================================================================
+
+security_alert_email = "dev-alerts@example.com"
+
+cross_account_principals = [
+  "arn:aws:iam::111111111111:root",
+  "arn:aws:iam::222222222222:root",
+  "arn:aws:iam::333333333333:root"
+]
+
+audit_principals = []  # External auditors, if any
+
+guardduty_finding_publishing_frequency = "SIX_HOURS"  # Dev: SIX_HOURS, Prod: FIFTEEN_MINUTES
+
+enable_security_hub_standards = {
+  aws_foundational = true
+  cis_benchmark    = false  # Dev: false, Prod: true
+  pci_dss          = false  # Dev: false, Prod: true
+  nist_800_53      = false  # Dev: false, Prod: true
+}
+
+#====================================================================
+# LOGGING (Optional - Retention periods, default to 30 days)
+#====================================================================
+
+log_retention_days            = 7    # Dev: 7, Prod: 90
+cloudtrail_log_retention_days = 30   # Dev: 30, Prod: 2555 (7 years)
+
+#====================================================================
+# ORGANIZATION (Optional - For Private CA and tags)
+#====================================================================
+
+organization_name = "Example Organization"
+
+#====================================================================
+# DISASTER RECOVERY (Optional - If enable_dr = true)
+#====================================================================
+
+dr_region              = "eu-west-2"  # DR region (must differ from primary)
+dr_strategy            = "pilot-light"  # pilot-light, warm-standby, active-active
+dr_rto_hours           = 4              # Recovery Time Objective in hours
+dr_rpo_hours           = 1              # Recovery Point Objective in hours
+dr_failover_mode       = "manual"       # manual or automatic (automatic for prod only)
+
+# DR VPC CIDR Blocks (MUST NOT overlap with primary or other environments)
+dr_hub_vpc_cidr             = "10.200.0.0/16"
+dr_workload_vpc_cidr        = "10.210.0.0/16"
+dr_data_vpc_cidr            = "10.212.0.0/16"
+dr_shared_services_vpc_cidr = "10.220.0.0/16"
+
+# DR Sizing (typically smaller than primary, especially for pilot-light)
+dr_aurora_instance_class    = "db.t4g.medium"  # Smaller than primary
+dr_aurora_instance_count    = 1                # Pilot light = 1, Warm standby = 2+
+dr_eks_node_desired_size    = 0                # Pilot light = 0, Warm standby = 2+
+dr_postgres_instance_class  = "db.t4g.medium"  # Smaller than primary
